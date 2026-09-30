@@ -1,28 +1,31 @@
-name: Lint
+name: GHAV trpc4931
 
 on:
-  pull_request:
+  push:
+    branches:
+      - 'codex/ghav-trpc4931-*'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+
 jobs:
-  lint:
-    env:
-      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-      TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
-
+  lint-packages:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Benchmark context
+        run: echo "GHAV_IMAGE=${ImageOS}@${ImageVersion}"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 18.x
 
@@ -31,7 +34,7 @@ jobs:
         run: |
           echo "pnpm_cache_dir=$(pnpm store path)" >> $GITHUB_OUTPUT
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         name: Setup pnpm cache
         with:
           path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
@@ -43,7 +46,38 @@ jobs:
         run: pnpm install --child-concurrency 3
 
       - name: Run ESLint
-        run: pnpm turbo lint
+        run: pnpm turbo --filter="@trpc/*" lint
+
+  other-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Benchmark context
+        run: echo "GHAV_IMAGE=${ImageOS}@${ImageVersion}"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 18.x
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: |
+          echo "pnpm_cache_dir=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
+          key: ${{ runner.os }}-pnpm-store-all-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-all-
+
+      - name: Install deps (with cache)
+        run: pnpm install --child-concurrency 3
 
       - name: Run ts-prune
         run: pnpm lint-prune
@@ -53,3 +87,37 @@ jobs:
 
       - name: Run Prettier
         run: pnpm format --list-different
+
+  lint-examples:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Benchmark context
+        run: echo "GHAV_IMAGE=${ImageOS}@${ImageVersion}"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 18.x
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: |
+          echo "pnpm_cache_dir=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
+          key: ${{ runner.os }}-pnpm-store-all-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-all-
+
+      - name: Install deps (with cache)
+        run: pnpm install --child-concurrency 3
+
+      - name: Run ESLint
+        run: pnpm turbo --filter="@examples/*" lint
